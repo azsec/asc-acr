@@ -35,7 +35,7 @@ jobs:
       - name: Login to Azure Container Registry
         uses: Azure/docker-login@v1
         with:
-          login-server: azsecacr.azurecr.io
+          login-server: ${{ env.ACR_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
       - name: Push scanned image to ${{ env.ACR_SERVER }}
