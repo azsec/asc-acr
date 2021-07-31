@@ -6,9 +6,9 @@ name: Sample workflow to scan image and publish to Azure Container Registry
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [azsec-patch-1]
+    branches: [azsec-branch]
   pull_request:
-    branches: [azsec-patch-1]
+    branches: [azsec-branch]
 
 jobs:
   asc_scan:
@@ -38,7 +38,7 @@ jobs:
           login-server: azsecacr.azurecr.io
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
-      - name: Push scanned image to ${{ env.ACR_REPO_NAME }}
+      - name: Push scanned image to ${{ env.ACR_SERVER }}
         run: |
           docker push ${{ env.ACR_SERVER }}/${{ env.ACR_REPO_NAME }}:${{ github.sha }}
       - name: Post result status to Azure Security Center
