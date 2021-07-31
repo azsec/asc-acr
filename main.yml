@@ -6,16 +6,19 @@ name: Sample workflow to scan image and publish to Azure Container Registry
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [azsec-branch]
+    branches: [azsec-patch-1]
   pull_request:
-    branches: [azsec-branch]
+    branches: [azsec-patch-1]
 
 jobs:
   asc_scan:
     runs-on: ubuntu-latest
     env:
       ACR_REPO_NAME: azsec-firefox
-      ACR_SERVER: azsecacr.azurecr.io
+      ACR_SERVER: ascacr0731.azurecr.io
+      AZ_SUBCRIPTION_ID: 67d6179d-a99d-4ccd-8c56-4d3ff2e13349
+      AZ_STORAGE_ACCOUNT_NAME: privcontainervulresult
+      AZ_STORAGE_CONTAINER_NAME: assessment-result
     steps:
       - name: Checkout sample Dockerfile
         uses: actions/checkout@v2
@@ -35,7 +38,7 @@ jobs:
       - name: Login to Azure Container Registry
         uses: Azure/docker-login@v1
         with:
-          login-server: azsecacr.azurecr.io
+          login-server: ${{ env.ACR_SERVER }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
       - name: Push scanned image to ${{ env.ACR_SERVER }}
@@ -50,3 +53,16 @@ jobs:
           subscription-token: ${{ secrets.ASC_AUTH_TOKEN }}
           # Do not modify ${{ steps.container-scan.outputs.scan-report-path }} as it uses this path by default in Version 0.1
           scan-results-path: ${{ steps.container-scan.outputs.scan-report-path }}
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZ_CREDENTIAL }}
+          allow-no-subscriptions: true
+      - name: Upload to storage account
+        run: |
+          az account set -s ${{ env.AZ_SUBCRIPTION_ID }}
+          az storage blob upload --account-name ${{ env.AZ_STORAGE_ACCOUNT_NAME }} \
+                                 --account-key ${{ secrets.AZ_STORAGE_KEY }} \
+                                 --container-name ${{ env.AZ_STORAGE_CONTAINER_NAME }} \
+                                 --file ${{ steps.container-scan.outputs.scan-report-path }} \
+                                 --name ${{ github.sha }}.json
