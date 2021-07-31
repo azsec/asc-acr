@@ -1,0 +1,52 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Sample workflow to scan image and publish to Azure Container Registry
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [azsec-patch-1]
+  pull_request:
+    branches: [azsec-patch-1]
+
+jobs:
+  asc_scan:
+    runs-on: ubuntu-latest
+    env:
+      ACR_REPO_NAME: azsec-firefox
+      ACR_SERVER: azsecacr.azurecr.io
+    steps:
+      - name: Checkout sample Dockerfile
+        uses: actions/checkout@v2
+        with:
+          ref: azsec-patch-1
+      - name: Build a sample Docker image with Firefox 88.0.1
+        run: |
+          docker build . -t ${{ env.ACR_SERVER }}/${{ env.ACR_REPO_NAME }}:${{ github.sha }} --file Dockerfile
+      - name: Scan Docker image using Azure Container Scan action
+        uses: Azure/container-scan@v0
+        id: container-scan
+        continue-on-error: true
+        with:
+          image-name: ${{ env.ACR_SERVER }}/${{ env.ACR_REPO_NAME }}:${{ github.sha }}
+          # run-quality-checks provides CIS benchmark assessment
+          run-quality-checks: true
+      - name: Login to Azure Container Registry
+        uses: Azure/docker-login@v1
+        with:
+          login-server: azsecacr.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Push scanned image to ${{ env.ACR_REPO_NAME }}
+        run: |
+          docker push ${{ env.ACR_SERVER }}/${{ env.ACR_REPO_NAME }}:${{ github.sha }}
+      - name: Post result status to Azure Security Center
+        uses: Azure/publish-security-assessments@v0
+        with:
+          artifact-type: containerImage
+          scan-provider: trivy
+          connection-string: ${{ secrets.ASC_CONNECTION_STRING }}
+          subscription-token: ${{ secrets.ASC_AUTH_TOKEN }}
+          # Do not modify ${{ steps.container-scan.outputs.scan-report-path }} as it uses this path by default in Version 0.1
+          scan-results-path: ${{ steps.container-scan.outputs.scan-report-path }}
